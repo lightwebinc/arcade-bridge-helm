@@ -5,7 +5,7 @@
 > specifications.
 
 Helm chart for [arcade-bridge](https://github.com/lightwebinc/arcade-bridge): the landing-tier
-shim that runs an **unmodified** Arcade v2 + merkle-service stack with a multicast delivery fabric
+bridge that runs an **unmodified** Arcade v2 + merkle-service stack with a multicast delivery fabric
 as its transport.
 
 This repository packages templates, default values, JSON Schema validation, and CI workflows for
