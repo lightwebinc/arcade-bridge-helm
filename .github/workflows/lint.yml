@@ -1,0 +1,117 @@
+name: lint
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4
+        with:
+          version: v3.16.0
+
+      - name: helm lint (defaults)
+        run: helm lint .
+
+      - name: helm lint (strict)
+        run: helm lint . --strict
+
+      - name: helm template (defaults)
+        run: |
+          helm template release-test . --debug > /tmp/render-default.yaml
+          test -s /tmp/render-default.yaml
+
+      - name: helm template (sink mode — no announce flags, no facade; retrieval stays)
+        run: |
+          helm template release-test . \
+            --set config.mode=sink \
+            --debug > /tmp/render-sink.yaml
+          test -s /tmp/render-sink.yaml
+          ! grep -q -- '-advertise' /tmp/render-sink.yaml
+          ! grep -q -- '-kafka' /tmp/render-sink.yaml
+          ! grep -q -- '-facade-listen' /tmp/render-sink.yaml
+          # The retrieval plane runs unconditionally in the binary, sink
+          # included, so its flag and Service must survive.
+          grep -q -- '-retrieval-listen' /tmp/render-sink.yaml
+          grep -q 'retrieval' /tmp/render-sink.yaml
+
+      - name: helm template (facade off by default — no facade Service, no facade flags)
+        run: |
+          ! grep -q -- '-edge-ingress' /tmp/render-default.yaml
+          ! grep -q -- '-facade-listen' /tmp/render-default.yaml
+          ! grep -q 'facade' /tmp/render-default.yaml
+
+      - name: helm template (facade on — comma-joined single flags)
+        run: |
+          helm template release-test . \
+            --set config.edgeIngress[0]=2001:db8:59::a \
+            --set config.edgeIngress[1]=2001:db8:59::b \
+            --set 'config.kafka[0]=192.0.2.10:19092' \
+            --set 'config.kafka[1]=192.0.2.11:19092' \
+            --debug > /tmp/render-facade.yaml
+          grep -q -- '-edge-ingress=2001:db8:59::a,2001:db8:59::b' /tmp/render-facade.yaml
+          grep -q -- '-kafka=192.0.2.10:19092,192.0.2.11:19092' /tmp/render-facade.yaml
+          grep -q -- '-facade-listen' /tmp/render-facade.yaml
+
+      - name: helm template (servicemonitor + prometheusrule + pdb + networkpolicy enabled)
+        run: |
+          helm template release-test . \
+            --set metrics.serviceMonitor.enabled=true \
+            --set metrics.prometheusRule.enabled=true \
+            --set podDisruptionBudget.enabled=true \
+            --set networkPolicy.enabled=true \
+            --debug > /tmp/render-full.yaml
+          test -s /tmp/render-full.yaml
+
+      - name: reject a doubled -advertise path
+        run: |
+          if helm template release-test . \
+              --set config.advertise=http://192.0.2.10:9165/api/v1 >/dev/null 2>&1; then
+            echo "expected the chart to reject advertise carrying apiPrefix"; exit 1
+          fi
+
+      - name: reject a schemeless -advertise
+        run: |
+          if helm template release-test . \
+              --set config.advertise=192.0.2.10:9165 >/dev/null 2>&1; then
+            echo "expected the schema to reject advertise without http(s) scheme"; exit 1
+          fi
+
+      - name: reject edgeIngress in sink mode
+        run: |
+          if helm template release-test . \
+              --set config.mode=sink \
+              --set config.edgeIngress[0]=2001:db8:59::a >/dev/null 2>&1; then
+            echo "expected the chart to reject edgeIngress with mode=sink"; exit 1
+          fi
+
+      - name: reject hydrateAsset without the facade
+        run: |
+          if helm template release-test . \
+              --set config.hydrateAsset=http://192.0.2.20:20090/api/v1 >/dev/null 2>&1; then
+            echo "expected the chart to reject hydrateAsset with the facade off"; exit 1
+          fi
+
+      - name: warn (not fail) on empty advertise/kafka in mode=all
+        run: |
+          grep -q 'helm.sh/chart-warnings' /tmp/render-default.yaml
+
+      - name: helm template (examples — catch drift)
+        run: |
+          for f in examples/*.yaml; do
+            echo "::group::$f"
+            helm template release-test . -f "$f" --debug > "/tmp/render-$(basename "$f")"
+            test -s "/tmp/render-$(basename "$f")"
+            echo "::endgroup::"
+          done
