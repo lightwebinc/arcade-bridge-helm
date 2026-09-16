@@ -43,14 +43,14 @@ spec:
           labels:
             severity: warning
           annotations:
-            summary: "Sustained stream errors on lane {{ "{{ $labels.lane }}" }}"
+            summary: "Sustained handler errors on lane {{ "{{ $labels.lane }}" }}"
             description: >-
-              Lane streams are bare (no length prefix, no type tag), so a
-              malformed object is unrecoverable for that connection and the
-              lane drops it for the edge to redial. Occasional errors are
-              ordinary tunnel churn; a sustained rate means a sender is
-              writing malformed objects or two classes are crossed onto one
-              lane.
+              A lane handler failed on an object: the announcement to
+              merkle-service did not produce, or the frame could not be
+              parsed for its inline block fields. The object stays cached
+              but was never announced, and a redelivery is treated as a
+              duplicate. Framing faults on the bare stream are not in this
+              series; they drop the connection and appear only in the log.
 
         - alert: ArcadeBridgeLaneRejects
           expr: rate(arcade_bridge_lane_objects_rejected_total[15m]) > 0
