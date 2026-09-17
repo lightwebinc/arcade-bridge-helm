@@ -189,7 +189,7 @@ up-tunnel. The full catalogue is in the
 | Value | Effect |
 | --- | --- |
 | `metrics.serviceMonitor.enabled: true` | Scrapes `/metrics` on the metrics Service port. |
-| `metrics.prometheusRule.enabled: true` | Installs the built-in alert set: announce failures (merkle-service not hearing about held objects), sustained lane errors and rejects, up-tunnel stalled (failures rising with sends flat: Arcade is seeing 503s), and missing parents (recent cache undersized or `hydrateAsset` unset). |
+| `metrics.prometheusRule.enabled: true` | Installs the built-in alert set: announce failures (merkle-service not hearing about held objects), sustained lane handler errors, connections dropped on a framing fault, up-tunnel stalled (failures rising with sends flat: Arcade is seeing 503s), and missing parents (recent cache undersized or `hydrateAsset` unset). |
 
 `/readyz` answers `200` only once **every** lane is bound and the retrieval plane is listening;
 `/healthz` is always `200`. Readiness gates traffic steering; liveness asserts only that the

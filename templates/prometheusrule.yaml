@@ -47,22 +47,26 @@ spec:
             description: >-
               A lane handler failed on an object: the announcement to
               merkle-service did not produce, or the frame could not be
-              parsed for its inline block fields. The object stays cached
-              but was never announced, and a redelivery is treated as a
-              duplicate. Framing faults on the bare stream are not in this
-              series; they drop the connection and appear only in the log.
+              parsed for its inline block fields. The object stays cached and
+              servable but was never announced; only a redelivery announces it
+              again, so an object delivered once during the fault stays
+              unannounced. Framing faults on the bare stream are not in this
+              series - see ArcadeBridgeLaneDropped.
 
-        - alert: ArcadeBridgeLaneRejects
-          expr: rate(arcade_bridge_lane_objects_rejected_total[15m]) > 0
+        - alert: ArcadeBridgeLaneDropped
+          expr: increase(arcade_bridge_lane_connections_dropped_total[15m]) > 0
           for: 15m
           labels:
             severity: warning
           annotations:
-            summary: "Objects rejected on lane {{ "{{ $labels.lane }}" }}"
+            summary: "Connections dropped on a framing fault on lane {{ "{{ $labels.lane }}" }}"
             description: >-
-              A lane handler is refusing objects on format policy. Sustained
-              growth means a sender is emitting the wrong format, not a sick
-              stack.
+              An object on the bare stream could not be walked, or exceeded
+              config.maxObject. There is no resync point, so the connection is
+              dropped and the edge redials - every object still in flight on
+              that connection is lost. Sustained growth means a sender is
+              emitting frames of the wrong shape, or the ceiling is set below
+              the objects this lane actually carries.
 
         - alert: ArcadeBridgeUptunnelStalled
           expr: >-
