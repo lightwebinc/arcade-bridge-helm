@@ -1,3 +1,5 @@
+> **Moved.** This chart now lives in [`lightwebinc/charts`](https://github.com/lightwebinc/charts/tree/main/charts/arcade-bridge) under `charts/arcade-bridge/`, with its full history. This repository is archived. Released versions are unchanged at `oci://ghcr.io/lightwebinc/charts/arcade-bridge`.
+
 # arcade-bridge Helm chart
 
 > Part of the [**BSV Layered Multicast**](https://github.com/lightwebinc/bsv-multicast)
